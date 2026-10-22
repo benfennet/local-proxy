@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""电视机本地小代理：给直播流补跨域头，让网页电视机能播所有源。
+
+在手机 Termux 或电脑上运行，监听 127.0.0.1:8899（只限本机，不对外）。
+电视机（app.benfen.net/tv/）设置里打开「本地代理」即可，地址就是
+http://127.0.0.1:8899，不用改。
+
+它只做三件事：
+  1. 转发直播流（列表和分片）；
+  2. 给每个响应补上跨域头（Access-Control-Allow-Origin 等）；
+  3. 改写 m3u8 列表里的每一行地址，让分片也走代理补头。
+
+纯标准库，无第三方依赖。Ctrl+C 退出。
+"""
+import sys
+import urllib.request
+import urllib.error
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs, quote, urljoin
+
+PORT = 8899
+UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0 Mobile Safari/537.36"}
+
+
+def wrap(url):
+    return f"http://127.0.0.1:{PORT}/proxy?url={quote(url, safe='')}"
+
+
+def rewrite_m3u8(text, base):
+    """把列表里的子列表/分片/密钥地址全部改写为走代理。"""
+    out = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            out.append(line)
+        elif s.startswith("#"):
+            if 'URI="' in s:  # EXT-X-KEY / EXT-X-MAP 等
+                pre, rest = s.split('URI="', 1)
+                uri, post = rest.split('"', 1)
+                out.append(pre + 'URI="' + wrap(urljoin(base, uri)) + '"' + post)
+            else:
+                out.append(line)
+        else:  # 子列表或分片地址（相对地址先转绝对）
+            out.append(wrap(urljoin(base, s)))
+    return "\n".join(out) + "\n"
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    server_version = "tvproxy/1.0"
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write("· %s\n" % (fmt % args))
+
+    def _cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        q = parse_qs(urlparse(self.path).query)
+        target = (q.get("url") or [""])[0]
+        if not target.startswith(("http://", "https://")):
+            body = "用法：/proxy?url=直播流地址".encode("utf-8")
+            self.send_response(400)
+            self._cors()
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        req = urllib.request.Request(target, headers=UA)
+        rng = self.headers.get("Range")
+        if rng:
+            req.add_header("Range", rng)
+        try:
+            resp = urllib.request.urlopen(req, timeout=15)
+        except Exception as e:
+            body = f"上游拉不到：{e}".encode("utf-8")
+            self.send_response(502)
+            self._cors()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        final_url = resp.geturl()
+        ctype = resp.headers.get("Content-Type", "") or ""
+        looks_m3u8 = ("mpegurl" in ctype.lower()
+                      or final_url.split("?")[0].lower().endswith((".m3u8", ".m3u")))
+        print("  →", final_url[:110])
+        self.send_response(resp.status)
+        self._cors()
+        try:
+            if looks_m3u8:
+                text = resp.read().decode("utf-8", "ignore")
+                data = rewrite_m3u8(text, final_url).encode("utf-8")
+                self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                if ctype:
+                    self.send_header("Content-Type", ctype)
+                cr = resp.headers.get("Content-Range")
+                if cr:
+                    self.send_header("Content-Range", cr)
+                cl = resp.headers.get("Content-Length")
+                if cl:
+                    self.send_header("Content-Length", cl)
+                    self.end_headers()
+                    while True:
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                else:  # 上游没给长度：读全量再发，保证连接干净收尾
+                    data = resp.read()
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            resp.close()
+
+
+if __name__ == "__main__":
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    print("=" * 52)
+    print(" 电视机本地小代理已启动")
+    print(f" 地址：http://127.0.0.1:{PORT}")
+    print(" 电视机设置里打开「本地代理」即可，保持本窗口开着。")
+    print(" Ctrl+C 退出。")
+    print("=" * 52)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n已退出。")
