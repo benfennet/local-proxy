@@ -24,6 +24,24 @@ UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) "
                     "Chrome/120.0 Mobile Safari/537.36"}
 
 
+def _why(e):
+    """把上游错误翻成一句人话，日志和回执都用它，不打堆栈。"""
+    s = str(e)
+    if "Errno 103" in s or "connection abort" in s.lower():
+        return "连接被对方中止（源不稳或挑线路）"
+    if "Errno 111" in s or "Connection refused" in s:
+        return "对方拒绝连接"
+    if "timed out" in s.lower() or "Timeout" in s:
+        return "连接超时（网络慢或源无响应）"
+    if "Name or service not known" in s or "Errno -2" in s or "getaddrinfo" in s:
+        return "域名解析失败"
+    if "CERTIFICATE" in s or "certificate" in s:
+        return "对方证书有问题"
+    if "HTTP Error" in s:
+        return s.split(":")[0]  # 如 HTTP Error 404
+    return s[:80]
+
+
 def wrap(url):
     return f"http://127.0.0.1:{PORT}/proxy?url={quote(url, safe='')}"
 
@@ -85,18 +103,22 @@ class Handler(BaseHTTPRequestHandler):
         try:
             resp = urllib.request.urlopen(req, timeout=15)
         except Exception as e:
-            body = f"上游拉不到：{e}".encode("utf-8")
-            self.send_response(502)
-            self._cors()
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            print(f"  ✗ 拉不到 {urlparse(target).netloc}：{_why(e)}", flush=True)
+            body = f"上游拉不到：{_why(e)}".encode("utf-8")
+            try:
+                self.send_response(502)
+                self._cors()
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             return
         final_url = resp.geturl()
         ctype = resp.headers.get("Content-Type", "") or ""
         looks_m3u8 = ("mpegurl" in ctype.lower()
                       or final_url.split("?")[0].lower().endswith((".m3u8", ".m3u")))
-        print("  →", final_url[:110])
+        print("  →", final_url[:110], flush=True)
         self.send_response(resp.status)
         self._cors()
         try:
@@ -133,8 +155,19 @@ class Handler(BaseHTTPRequestHandler):
             resp.close()
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        # 浏览器先断开（切台/关页面）是常态，不值得刷一屏堆栈
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError)):
+            return
+        print(f"  ✗ 处理请求出错：{_why(exc) if exc else '未知'}")
+
+
 if __name__ == "__main__":
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    srv = Server(("127.0.0.1", PORT), Handler)
     print("=" * 52)
     print(" 电视机本地小代理已启动")
     print(f" 地址：http://127.0.0.1:{PORT}")
