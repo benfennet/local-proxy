@@ -170,6 +170,36 @@ public class MainActivity extends Activity {
             }
         });
 
+        /* 看电视就留在本应用里：同进程在前台，系统冻不着，代理随时应答 */
+        Button watch = new Button(this);
+        watch.setText("去看电视");
+        watch.setTextSize(18);
+        watch.setTextColor(Color.WHITE);
+        GradientDrawable wbg = new GradientDrawable();
+        wbg.setColor(seal);
+        wbg.setCornerRadius(10 * dp);
+        watch.setBackground(wbg);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (58 * dp));
+        wlp.topMargin = (int) (12 * dp);
+        root.addView(watch, wlp);
+        watch.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (!ProxyService.isRunning()) {
+                    Intent i = new Intent(MainActivity.this, ProxyService.class);
+                    i.setAction(ProxyService.ACTION_START);
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
+                    else startService(i);
+                }
+                v.postDelayed(new Runnable() {
+                    public void run() {
+                        refresh();
+                        startActivity(new Intent(MainActivity.this, TvActivity.class));
+                    }
+                }, 400);
+            }
+        });
+
         health = new TextView(this);
         health.setTextSize(14.5f);
         health.setLineSpacing(0, 1.5f);
@@ -179,7 +209,7 @@ public class MainActivity extends Activity {
         root.addView(health, hlp);
 
         TextView steps = new TextView(this);
-        steps.setText("怎么用：\n1. 点上面的按钮把它打开（通知栏会出现一条「运行中」）；\n2. 回到浏览器打开电视机，在设置里打开「本地代理」开关；\n3. 看完，点「关掉代理」就行。");
+        steps.setText("怎么用：\n1. 点「打开代理」；\n2. 点「去看电视」——电视就在小帮手里打开，在电视的设置里打开「本地代理」开关，看台就行，不用切到浏览器；\n3. 看完，回来点「关掉代理」。");
         steps.setTextColor(muted);
         steps.setTextSize(15);
         steps.setLineSpacing(0, 1.6f);
