@@ -1,6 +1,7 @@
-name: build-windows-exe
+name: build-binaries
 
-# 手动触发或打 v* 标签时，把 tvproxy.py 打成 Windows 单文件 exe：
+# 手动触发或打 v* 标签时，把 tvproxy.py 打成三平台单文件：
+# Windows tvproxy.exe / macOS tvproxy-macos / Linux tvproxy-linux。
 # 产物挂在本次运行的 Artifacts 里；打标签时同时发布到 Release。
 on:
   workflow_dispatch:
@@ -11,23 +12,41 @@ permissions:
   contents: write
 
 jobs:
-  exe:
-    runs-on: windows-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: tvproxy-windows
+            out: tvproxy.exe
+          - os: macos-latest
+            artifact: tvproxy-macos
+            out: tvproxy-macos
+          - os: ubuntu-latest
+            artifact: tvproxy-linux
+            out: tvproxy-linux
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build tvproxy.exe (single file)
+      - name: Build single-file binary
         run: |
           pip install pyinstaller
           pyinstaller --onefile --name tvproxy tvproxy.py
+      - name: Rename output
+        shell: bash
+        run: |
+          cd dist
+          if [ -f tvproxy.exe ]; then mv tvproxy.exe "${{ matrix.out }}"; else mv tvproxy "${{ matrix.out }}"; fi
+          ls -la
       - uses: actions/upload-artifact@v4
         with:
-          name: tvproxy-windows
-          path: dist/tvproxy.exe
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.out }}
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/tvproxy.exe
+          files: dist/${{ matrix.out }}

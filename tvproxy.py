@@ -67,7 +67,7 @@ def rewrite_m3u8(text, base):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "tvproxy/1.1"
+    server_version = "tvproxy/1.2"
 
     def log_message(self, fmt, *args):
         sys.stderr.write("· %s\n" % (fmt % args))
@@ -87,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/ping":  # 电视机用它检测代理在不在
-            body = b'{"ok":true,"app":"tvproxy","version":"1.1"}'
+            body = b'{"ok":true,"app":"tvproxy","version":"1.2"}'
             self.send_response(200)
             self._cors()
             self.send_header("Content-Type", "application/json")
