@@ -18,15 +18,23 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
     private TextView status;
     private Button toggle;
+    private Button permBtn;
+
+    private boolean needPerm() {
+        return Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        refresh();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
-                        != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
-        }
 
         int paper = Color.rgb(0xee, 0xe9, 0xdf);
         int ink = Color.rgb(0x17, 0x17, 0x14);
@@ -63,9 +71,9 @@ public class MainActivity extends Activity {
         root.addView(title, tlp);
 
         TextView intro = new TextView(this);
-        intro.setText("电视机的配套小工具。在这台手机上运行，电视播台时把流先过它一遍补上跨域许可——流只在本机转一圈，不经过任何别人的服务器。");
+        intro.setText("电视机的小帮手。有些频道在电视机里打不开，把它打开就能看了。它只在这台手机上工作，不把你的东西传到外面去。");
         intro.setTextColor(muted);
-        intro.setTextSize(14);
+        intro.setTextSize(15.5f);
         intro.setLineSpacing(0, 1.5f);
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -73,18 +81,37 @@ public class MainActivity extends Activity {
         root.addView(intro, ilp);
 
         status = new TextView(this);
-        status.setTextSize(16);
+        status.setTextSize(18);
         status.setTypeface(Typeface.SERIF, Typeface.BOLD);
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         slp.topMargin = (int) (30 * dp);
         root.addView(status, slp);
 
+        /* 先讲清再请用户点允许：没这一步，系统框弹得没头没脑，老人家不敢点 */
+        permBtn = new Button(this);
+        permBtn.setText("先点这里：允许通知（能在通知栏看到它在运行）");
+        permBtn.setTextSize(15);
+        permBtn.setTextColor(ink);
+        GradientDrawable pbg = new GradientDrawable();
+        pbg.setColor(Color.rgb(0xe4, 0xde, 0xd2));
+        pbg.setCornerRadius(10 * dp);
+        permBtn.setBackground(pbg);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (52 * dp));
+        plp.topMargin = (int) (14 * dp);
+        root.addView(permBtn, plp);
+        permBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
+            }
+        });
+
         toggle = new Button(this);
-        toggle.setTextSize(16);
+        toggle.setTextSize(18);
         toggle.setTextColor(Color.WHITE);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int) (52 * dp));
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (58 * dp));
         blp.topMargin = (int) (14 * dp);
         root.addView(toggle, blp);
         toggle.setOnClickListener(new View.OnClickListener() {
@@ -105,9 +132,9 @@ public class MainActivity extends Activity {
         });
 
         TextView steps = new TextView(this);
-        steps.setText("怎么用：\n1. 点上面的按钮启动代理（通知栏会挂一条「运行中」）；\n2. 回浏览器打开电视机，在设置里打开「本地代理」开关；\n3. 看完点「停止」或通知里的停止即可。");
+        steps.setText("怎么用：\n1. 点上面的按钮把它打开（通知栏会出现一条「运行中」）；\n2. 回到浏览器打开电视机，在设置里打开「本地代理」开关；\n3. 看完，点「关掉代理」就行。");
         steps.setTextColor(muted);
-        steps.setTextSize(13.5f);
+        steps.setTextSize(15);
         steps.setLineSpacing(0, 1.6f);
         LinearLayout.LayoutParams stlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -126,12 +153,13 @@ public class MainActivity extends Activity {
 
     private void refresh() {
         if (status == null || toggle == null) return;
+        if (permBtn != null) permBtn.setVisibility(needPerm() ? View.VISIBLE : View.GONE);
         boolean on = ProxyService.isRunning();
         int seal = Color.rgb(0xa6, 0x2e, 0x24);
         int ink = Color.rgb(0x17, 0x17, 0x14);
-        status.setText(on ? "● 正在运行（127.0.0.1:8899）" : "○ 还没启动");
+        status.setText(on ? "● 正在运行" : "○ 还没打开");
         status.setTextColor(on ? seal : ink);
-        toggle.setText(on ? "停止代理" : "启动代理");
+        toggle.setText(on ? "关掉代理" : "打开代理");
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(on ? ink : seal);
         bg.setCornerRadius(10 * getResources().getDisplayMetrics().density);
