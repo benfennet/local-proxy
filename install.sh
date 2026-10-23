@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # 电视机本地代理 · Termux 一键安装并启动
 # 用法：在 Termux 里粘贴这一条回车，其余自动完成：
-#   curl -sL https://cdn.jsdelivr.net/gh/benfennet/local-proxy@main/install.sh | bash
+#   curl -sL https://app.benfen.net/proxy/install.sh | bash
 echo "== 电视机本地代理 · 一键安装 =="
 if ! command -v python >/dev/null 2>&1; then
   echo "第一次使用，正在安装 Python（只需这一次，请稍等）…"

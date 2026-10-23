@@ -12,7 +12,7 @@
 2. 打开 Termux，粘贴这一整条回车——装环境、下载、启动一次走完：
 
    ```
-   curl -sL https://cdn.jsdelivr.net/gh/benfennet/local-proxy@main/install.sh | bash
+   curl -sL https://app.benfen.net/proxy/install.sh | bash
    ```
 
 3. 看到「电视机本地小代理已启动 ✓」就放着别关（可以切走，别划掉 Termux）。
