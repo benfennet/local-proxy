@@ -25,6 +25,19 @@ public class ProxyService extends Service {
     private static volatile boolean running = false;
     private PowerManager.WakeLock wakeLock;
 
+    /* 心跳：运行期每 5 秒跳一次并记墙钟起点。进程被系统冻结时心跳停摆，
+       回到前台用「流逝时间 − 心跳应跳次数」就能算出被冻了多久，不靠猜。 */
+    private static volatile long hbStartWall = 0;
+    private static volatile long hbTicks = 0;
+    private Thread hbThread;
+
+    public static long frozenSeconds() {
+        if (!running || hbStartWall == 0) return 0;
+        long elapsed = (System.currentTimeMillis() - hbStartWall) / 1000;
+        long lag = elapsed - hbTicks * 5;
+        return lag > 0 ? lag : 0;
+    }
+
     public static boolean isRunning() { return running; }
 
     @Override
@@ -74,6 +87,18 @@ public class ProxyService extends Service {
                 wakeLock.setReferenceCounted(false);
                 wakeLock.acquire();
             }
+            hbStartWall = System.currentTimeMillis();
+            hbTicks = 0;
+            hbThread = new Thread(new Runnable() {
+                public void run() {
+                    while (running) {
+                        try { Thread.sleep(5000); } catch (InterruptedException e) { return; }
+                        if (running) hbTicks++;
+                    }
+                }
+            });
+            hbThread.setDaemon(true);
+            hbThread.start();
         } catch (Exception e) {
             running = false;
         }
@@ -81,6 +106,8 @@ public class ProxyService extends Service {
 
     private synchronized void stopProxy() {
         running = false;
+        if (hbThread != null) { hbThread.interrupt(); hbThread = null; }
+        hbStartWall = 0; hbTicks = 0;
         if (server != null) server.stop();
         if (wakeLock != null) {
             try { wakeLock.release(); } catch (Exception ignored) {}

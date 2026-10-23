@@ -20,6 +20,7 @@ import android.widget.TextView;
 /** 本地代理主界面：一颗按钮管开关，状态一眼看完，其余什么都不放。 */
 public class MainActivity extends Activity {
     private TextView status;
+    private TextView health;
     private Button toggle;
     private Button permBtn;
     private Button batBtn;
@@ -169,6 +170,14 @@ public class MainActivity extends Activity {
             }
         });
 
+        health = new TextView(this);
+        health.setTextSize(14.5f);
+        health.setLineSpacing(0, 1.5f);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hlp.topMargin = (int) (16 * dp);
+        root.addView(health, hlp);
+
         TextView steps = new TextView(this);
         steps.setText("怎么用：\n1. 点上面的按钮把它打开（通知栏会出现一条「运行中」）；\n2. 回到浏览器打开电视机，在设置里打开「本地代理」开关；\n3. 看完，点「关掉代理」就行。");
         steps.setTextColor(muted);
@@ -198,6 +207,22 @@ public class MainActivity extends Activity {
         int ink = Color.rgb(0x17, 0x17, 0x14);
         status.setText(on ? "● 正在运行" : "○ 还没打开");
         status.setTextColor(on ? seal : ink);
+        if (health != null) {
+            if (!on) {
+                health.setText("");
+            } else {
+                long fz = ProxyService.frozenSeconds();
+                if (fz >= 15) {
+                    health.setTextColor(seal);
+                    health.setText(fz >= 90
+                            ? "它自己报告：刚才被手机冻住了约 " + (fz / 60) + " 分钟（开着，但不许回话）。"
+                            : "它自己报告：刚才被手机冻住了约 " + fz + " 秒（开着，但不许回话）。");
+                } else {
+                    health.setTextColor(Color.rgb(0x5f, 0x5c, 0x55));
+                    health.setText("它自己报告：运行正常，没被冻住。");
+                }
+            }
+        }
         toggle.setText(on ? "关掉代理" : "打开代理");
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(on ? ink : seal);
