@@ -39,7 +39,8 @@ jobs:
         shell: bash
         run: |
           cd dist
-          if [ -f tvproxy.exe ]; then mv tvproxy.exe "${{ matrix.out }}"; else mv tvproxy "${{ matrix.out }}"; fi
+          src=tvproxy; [ -f tvproxy.exe ] && src=tvproxy.exe
+          if [ "$src" != "${{ matrix.out }}" ]; then mv "$src" "${{ matrix.out }}"; fi
           ls -la
       - uses: actions/upload-artifact@v4
         with:
