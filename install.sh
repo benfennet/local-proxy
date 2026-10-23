@@ -24,5 +24,7 @@ echo ""
 echo "✓ 装好了。以后每次看电视前，在 Termux 里输入 tvproxy 回车就能启动；"
 echo "  装了 Termux:Widget 的，桌面小部件里点「电视机代理」也行。"
 echo "✓ 现在先帮你启动这一次：保持 Termux 开着，回电视机里打开「本地代理」开关。"
+echo "  提醒：安卓会冻结后台应用——请到系统设置里给 Termux 开「电池无限制」，"
+echo "  并在最近任务里把 Termux 卡片上锁，不然切到浏览器一会儿代理就联系不上了。"
 echo ""
 exec tvproxy
