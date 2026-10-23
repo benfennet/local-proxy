@@ -10,18 +10,6 @@
 
 下载 **本地代理.apk**（工具页 https://app.benfen.net/proxy/ 或本仓库 Releases 的 `apk-v1.0`）装上，点图标启动即可：它用安卓前台服务常驻，不会被系统冻结。启动后回电视机打开「本地代理」开关，看完在应用里或通知里点停止。
 
-## 在手机上用（Termux，备选）
-
-1. 装 **Termux**：在 F-Droid 里搜 Termux 安装（不要用 Google Play 里的旧版）。
-2. 打开 Termux，粘贴这一整条回车——装环境、下载、启动一次走完：
-
-   ```
-   curl -sL https://app.benfen.net/proxy/install.sh | bash
-   ```
-
-3. 看到「电视机本地小代理已启动 ✓」就放着别关（可以切走，别划掉 Termux）。
-4. 打开电视机 → 设置 → 「本地代理」打开开关（看到"已连接"就是通了）→ 回到频道点台。
-5. 以后再看：在 Termux 里输入 `tvproxy` 回车即可（或用 Termux:Widget 桌面小部件点「电视机代理」）。不看了回 Termux 按 Ctrl+C 停掉。
 
 ## 在电脑上用（Windows，双击）
 
