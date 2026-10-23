@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 
 /**
  * 前台服务：托住代理服务器。安卓只冻结普通后台进程，
@@ -22,6 +23,7 @@ public class ProxyService extends Service {
 
     private static volatile ProxyServer server;
     private static volatile boolean running = false;
+    private PowerManager.WakeLock wakeLock;
 
     public static boolean isRunning() { return running; }
 
@@ -65,6 +67,13 @@ public class ProxyService extends Service {
             if (server == null) server = new ProxyServer();
             server.start();
             running = true;
+            /* 持锁防 CPU 睡眠把连接拖死；配合电池豁免一起挡系统的后台冻结 */
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "localproxy:proxy");
+                wakeLock.setReferenceCounted(false);
+                wakeLock.acquire();
+            }
         } catch (Exception e) {
             running = false;
         }
@@ -73,6 +82,10 @@ public class ProxyService extends Service {
     private synchronized void stopProxy() {
         running = false;
         if (server != null) server.stop();
+        if (wakeLock != null) {
+            try { wakeLock.release(); } catch (Exception ignored) {}
+            wakeLock = null;
+        }
     }
 
     private Notification buildNotification() {

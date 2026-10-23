@@ -6,8 +6,11 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -19,11 +22,17 @@ public class MainActivity extends Activity {
     private TextView status;
     private Button toggle;
     private Button permBtn;
+    private Button batBtn;
 
     private boolean needPerm() {
         return Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                         != PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean needBattery() {
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName());
     }
 
     @Override
@@ -107,6 +116,35 @@ public class MainActivity extends Activity {
             }
         });
 
+        /* 国产手机会把退到后台的应用冻住：请求在、回应发不出，电视就检测不到。
+           电池豁免是唯一的正门，配一句大白话让用户敢点。 */
+        batBtn = new Button(this);
+        batBtn.setText("再点这里：允许它在后台一直运行（不然手机会把它冻住）");
+        batBtn.setTextSize(15);
+        batBtn.setTextColor(ink);
+        GradientDrawable bbg = new GradientDrawable();
+        bbg.setColor(Color.rgb(0xe4, 0xde, 0xd2));
+        bbg.setCornerRadius(10 * dp);
+        batBtn.setBackground(bbg);
+        batBtn.setMinHeight((int) (52 * dp));
+        batBtn.setPadding((int) (12 * dp), (int) (10 * dp), (int) (12 * dp), (int) (10 * dp));
+        LinearLayout.LayoutParams btlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        btlp.topMargin = (int) (10 * dp);
+        root.addView(batBtn, btlp);
+        batBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                try {
+                    Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(i);
+                } catch (Exception e) {
+                    try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
+                    catch (Exception ignored) {}
+                }
+            }
+        });
+
         toggle = new Button(this);
         toggle.setTextSize(18);
         toggle.setTextColor(Color.WHITE);
@@ -154,6 +192,7 @@ public class MainActivity extends Activity {
     private void refresh() {
         if (status == null || toggle == null) return;
         if (permBtn != null) permBtn.setVisibility(needPerm() ? View.VISIBLE : View.GONE);
+        if (batBtn != null) batBtn.setVisibility(needBattery() ? View.VISIBLE : View.GONE);
         boolean on = ProxyService.isRunning();
         int seal = Color.rgb(0xa6, 0x2e, 0x24);
         int ink = Color.rgb(0x17, 0x17, 0x14);
