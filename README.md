@@ -6,31 +6,26 @@
 电视机播台时把流先过它一遍——它负责拉流、补上跨域头再交给浏览器。
 流只在你本机转一圈，不经过任何别人的服务器。
 
-## 在手机上用（Termux）
+## 在手机上用（Termux，一条命令）
 
 1. 装 **Termux**：在 F-Droid 里搜 Termux 安装（不要用 Google Play 里的旧版）。
-2. 打开 Termux，粘贴这一整行回车（装 Python + 下载脚本）：
+2. 打开 Termux，粘贴这一整条回车——装环境、下载、启动一次走完：
 
    ```
-   pkg install -y python && curl -sL https://cdn.jsdelivr.net/gh/benfennet/local-proxy@main/tvproxy.py -o tvproxy.py
+   curl -sL https://cdn.jsdelivr.net/gh/benfennet/local-proxy@main/install.sh | bash
    ```
 
-3. 启动代理（以后每次看电视前跑这一行）：
+3. 看到「电视机本地小代理已启动 ✓」就放着别关（可以切走，别划掉 Termux）。
+4. 打开电视机 → 设置 → 「本地代理」打开开关（看到"已连接"就是通了）→ 回到频道点台。
+5. 以后再看：在 Termux 里输入 `tvproxy` 回车即可（或用 Termux:Widget 桌面小部件点「电视机代理」）。不看了回 Termux 按 Ctrl+C 停掉。
 
-   ```
-   python tvproxy.py
-   ```
+## 在电脑上用（Windows，双击）
 
-   看到「电视机本地小代理已启动」就放着别关窗口（可以切走，别划掉 Termux）。
-4. 打开电视机 → 设置 → 「本地代理」打开开关（地址已预填 `http://127.0.0.1:8899`）→ 回到频道点台。
-5. 不看了：回 Termux 按 Ctrl+C 停掉即可（或直接划掉 Termux）。
+1. 到本仓库的 [Releases](https://github.com/benfennet/local-proxy/releases) 下载 `tvproxy.exe`。
+2. 双击运行。第一次运行 Windows 可能弹安全提醒，点「更多信息 → 仍要运行」即可（程序源码就这一个文件，公开可查；提醒是因为没买代码签名证书）。
+3. 它会自动打开电视机页面；在电视机设置里打开「本地代理」开关（看到"已连接"即通）。保持代理窗口开着，关掉就停。
 
-小提示：Termux 里先跑一次 `termux-wake-lock` 能减少看电视时被系统杀后台（没有这个命令就跳过，不影响使用）。
-
-## 在电脑上用
-
-装有 Python 3 即可：下载 `tvproxy.py` 后运行 `python tvproxy.py`，
-然后在**同一台电脑的浏览器**里打开电视机并打开代理开关。
+没有 exe 或用 macOS/Linux：装有 Python 3 时，下载 `tvproxy.py` 运行 `python tvproxy.py`，效果一样。
 
 ## 它做了什么
 

@@ -67,7 +67,7 @@ def rewrite_m3u8(text, base):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "tvproxy/1.0"
+    server_version = "tvproxy/1.1"
 
     def log_message(self, fmt, *args):
         sys.stderr.write("· %s\n" % (fmt % args))
@@ -85,6 +85,27 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        path = urlparse(self.path).path
+        if path == "/ping":  # 电视机用它检测代理在不在
+            body = b'{"ok":true,"app":"tvproxy","version":"1.1"}'
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path == "/":  # 手滑打开代理地址时，给一句人话
+            body = ("电视机本地小代理正在运行 ✓\n"
+                    "回到电视机（https://app.benfen.net/tv/）设置里打开「本地代理」即可看电视。\n"
+                    "保持运行代理的窗口开着，关掉就停了。").encode("utf-8")
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         q = parse_qs(urlparse(self.path).query)
         target = (q.get("url") or [""])[0]
         if not target.startswith(("http://", "https://")):
@@ -167,13 +188,27 @@ class Server(ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
-    srv = Server(("127.0.0.1", PORT), Handler)
+    import os
+    try:
+        srv = Server(("127.0.0.1", PORT), Handler)
+    except OSError:
+        print("端口 8899 已经被占用——多半是已经开着一个代理了，不用重复开。")
+        print("直接回电视机里打开「本地代理」开关即可。")
+        sys.exit(0)
     print("=" * 52)
-    print(" 电视机本地小代理已启动")
+    print(" 电视机本地小代理已启动 ✓")
     print(f" 地址：http://127.0.0.1:{PORT}")
-    print(" 电视机设置里打开「本地代理」即可，保持本窗口开着。")
-    print(" Ctrl+C 退出。")
+    print(" 接下来：打开电视机 https://app.benfen.net/tv/")
+    print("         在设置里打开「本地代理」开关，就能看了。")
+    print(" 保持本窗口开着（关掉代理就停）。Ctrl+C 退出。")
     print("=" * 52)
+    # 桌面环境自动帮用户把电视机打开（Termux 里没有浏览器，跳过）
+    if not os.environ.get("TERMUX_VERSION"):
+        try:
+            import webbrowser
+            webbrowser.open("https://app.benfen.net/tv/")
+        except Exception:
+            pass
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
